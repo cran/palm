@@ -16,11 +16,10 @@ the console.}
 }
 \value{
 The original model object containing additional information
-    from the boostrap procedure. These are accessed by functions
-    such as \link{summary}.
-
-The original R6 reference object, with additional bootstrap
-    information attached.
+    from the bootstrap procedure. These are accessed by functions
+    such as \link{summary.palm} and \link{confint.palm}. The
+    bootstrap parameter estimates can be found in the \code{boots}
+    component of the returned object.
 }
 \description{
 Carries out a parametric bootstrap procedure for models fitted
@@ -38,4 +37,3 @@ confint(fit)
 ## they can be fitted and bootstrapped quickly for example purposes.
 
 }
-

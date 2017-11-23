@@ -4,7 +4,7 @@
 \alias{sim.void}
 \title{Simulating points from a void point process.}
 \usage{
-sim.void(pars, lims)
+sim.void(pars, lims, parents = NULL)
 }
 \arguments{
 \item{pars}{A named vector containing the values of the parameters
@@ -12,8 +12,29 @@ of the process that generates the points.}
 
 \item{lims}{A matrix with two columns, corresponding to the upper
 and lower limits of each dimension, respectively.}
+
+\item{parents}{An optional matrix containing locations of
+parents. If this is provided, then the parameter \code{D} is
+not required in \code{pars}. If this is not provided, then
+parents are generated from a homogeneous Poisson point process
+with intensity \code{Dp}.}
+}
+\value{
+A list. The first component gives the Cartesian coordinates
+    of the generated points. The second component returns the
+    parent locations.
 }
 \description{
 Generates points from a void point process using parameters provided by the user.
 }
+\details{
+For a list of possible parameter names, see \link{fit.ns}.
+}
+\examples{
+## Two-dimensional void process.
+void.data <- sim.void(c(Dc = 1000, Dp = 10, tau = 0.05), rbind(c(0, 1), c(0, 1)))
+## Plotting the data.
+plot(void.data$points)
+points(void.data$parents, pch = 16, col = "red")
 
+}

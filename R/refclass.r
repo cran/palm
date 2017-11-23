@@ -19,12 +19,17 @@ base.class.R6 <- R6Class("palm",
                              ## An empty method for simulation.
                              simulate = function(pars){},
                              ## A method to trim points to the observation window.
-                             trim.points = function(points){
+                             trim.points = function(points, output.indices = FALSE){
                                  in.window <- rep(TRUE, nrow(points))
                                  for (i in 1:self$dim){
                                      in.window <- in.window & (self$lims[i, 1] <= points[, i] & self$lims[i, 2] >= points[, i])
                                  }
-                                 points[in.window, , drop = FALSE]
+                                 if (output.indices){
+                                     out <- which(in.window)
+                                 } else {
+                                     out <- points[in.window, , drop = FALSE]
+                                 }
+                                 out
                              }
                          ))
 
@@ -267,17 +272,21 @@ set.fit.class <- function(class, class.env){
                     colnames(self$boots) <- self$par.names
                 },
                 ## A method for plotting.
-                plot = function(xlim = NULL, show.empirical = TRUE, breaks = 50){
+                plot = function(xlim = NULL, ylim = NULL, show.empirical = TRUE, breaks = 50, ...){
+                    if (show.empirical){
+                        emp <- self$empirical(xlim, breaks)  
+                    }
                     if (is.null(xlim)){
                         xlim <- self$get.xlim()
                     }
                     xx <- seq(xlim[1], xlim[2], length.out = 1000)
                     yy <- self$palm.intensity(xx, self$par.fitted)
-                    if (show.empirical){
-                        emp <- self$empirical(xlim, breaks)
-                        ylim <- c(0, max(c(emp$y, yy)))
-                    } else {
-                        ylim <- c(0, max(yy))
+                    if (is.null(ylim)){
+                        if (show.empirical){
+                            ylim <- c(0, max(c(emp$y, yy)))
+                        } else {
+                            ylim <- c(0, max(yy))
+                        }
                     }
                     par(xaxs = "i")
                     plot.new()
@@ -417,12 +426,8 @@ set.ns.class <- function(class, class.env){
                 },
                 ## Overwriting simulation method.
                 simulate = function(pars = self$par.fitted){
-                    expected.parents <- pars["D"]*self$vol
-                    n.parents <- rpois(1, expected.parents)
-                    parent.locs <- matrix(0, nrow = n.parents, ncol = self$dim)
-                    for (i in 1:self$dim){
-                        parent.locs[, i] <- runif(n.parents, self$lims[i, 1], self$lims[i, 2])
-                    }
+                    parent.locs <- self$get.parents(pars)
+                    n.parents <- nrow(parent.locs)
                     sim.n.children <- self$simulate.n.children(n.parents, pars)
                     n.children <- sim.n.children$n.children
                     sibling.list <- sim.n.children$sibling.list
@@ -435,7 +440,27 @@ set.ns.class <- function(class, class.env){
                             j <- j + n.children[i]
                         }
                     }
-                    list(points = self$trim.points(child.locs), sibling.list = sibling.list)
+                    parent.ids <- rep(1:n.parents, times = n.children)
+                    trimmed <- self$trim.points(child.locs, output.indices = TRUE)
+                    list(points = child.locs[trimmed, , drop = FALSE],
+                         parents = parent.locs,
+                         parent.ids = parent.ids[trimmed],
+                         child.ys = sim.n.children$child.ys[trimmed],
+                         sibling.list = self$trim.siblings(sibling.list, trimmed))
+                },
+                ## A method to trim the sibling list.
+                trim.siblings = function(sibling.list, trimmed){
+                    sibling.list
+                },
+                ## A method to get parents by simulation.
+                get.parents = function(pars){
+                    expected.parents <- pars["D"]*self$vol
+                    n.parents <- rpois(1, expected.parents)
+                    parent.locs <- matrix(0, nrow = n.parents, ncol = self$dim)
+                    for (i in 1:self$dim){
+                        parent.locs[, i] <- runif(n.parents, self$lims[i, 1], self$lims[i, 2])
+                    }
+                    parent.locs
                 },
                 ## Overwriting method for the Palm intensity.
                 palm.intensity = function(r, pars){
@@ -636,16 +661,26 @@ set.twocamerachild.class <- function(class, class.env){
                 ## Simulation method for the number of children per parent.
                 simulate.n.children = function(n, pars){
                     probs <- twocamera.probs(self$twocamera.l, self$twocamera.tau, self$twocamera.w,
-                                            self$twocamera.b, pars["kappa"], pars["sigma"])
-                    camera1.in <- sample(c(TRUE, FALSE), n, replace = TRUE, prob = c(probs$p.in, probs$p.out))
-                    camera1.up <- sample(c(TRUE, FALSE), n, replace = TRUE, prob = c(probs$p.up, probs$p.down))
-                    camera1.det <- camera1.in & camera1.up
-                    camera2.det <- numeric(n)
+                                             self$twocamera.b, pars["kappa"], pars["sigma"])
+                    ## Generating some y values.
+                    parent.ys <- runif(n, -self$twocamera.b, self$twocamera.b)
+                    child.ys <- matrix(nrow = n, ncol = 2)
                     for (i in 1:n){
-                        camera2.det[i] <- sample(c(TRUE, FALSE), 1,
-                                                prob = c(probs$p.11[camera1.det[i]], probs$p.10[!camera1.det[i]],
-                                                         probs$p.01[camera1.det[i]], probs$p.00[!camera1.det[i]]))
+                        child.ys[i, ] <- rnorm(2, parent.ys[i], pars["sigma"])
                     }
+                    camera1.in <- ifelse(child.ys[, 1] < self$twocamera.w & child.ys[, 1] > -self$twocamera.w,
+                                         TRUE, FALSE)
+                    camera2.in <- ifelse(child.ys[, 2] < self$twocamera.w & child.ys[, 2] > -self$twocamera.w,
+                                         TRUE, FALSE)
+                    camera1.up <- sample(c(TRUE, FALSE), n, replace = TRUE, prob = c(probs$p.up, probs$p.down))
+                    camera2.up <- logical(n)
+                    for (i in 1:n){
+                        p.up <- ifelse(camera1.up[i], 1 - probs$p.down.up, probs$p.up.down)
+                        camera2.up[i] <- sample(c(TRUE, FALSE), 1, prob = c(p.up, 1 - p.up))
+                    }
+                    camera1.det <- camera1.in & camera1.up
+                    camera2.det <- camera2.in & camera2.up
+                    child.ys <- t(child.ys)[t(cbind(camera1.det, camera2.det))]
                     n.children <-  camera1.det + camera2.det
                     cameras <- numeric(sum(n.children))
                     j <- 1
@@ -657,7 +692,13 @@ set.twocamerachild.class <- function(class, class.env){
                     }
                     sibling.list <- siblings.twocamera(cameras)
                     sibling.list$cameras <- cameras
-                    list(n.children = n.children, sibling.list = sibling.list)
+                    list(n.children = n.children, sibling.list = sibling.list, child.ys = child.ys)
+                },
+                ## Overwriting the method to trim the sibling list for children outside the window.
+                trim.siblings = function(sibling.list, trimmed){
+                    sibling.list$sibling.mat <- sibling.list$sibling.mat[trimmed, trimmed, drop = FALSE]
+                    sibling.list$cameras <- sibling.list$cameras[trimmed]
+                    super$trim.siblings(sibling.list, trimmed)
                 },
                 ## A method for the expectation of the child distribution.
                 child.expectation = function(pars){
@@ -804,13 +845,18 @@ set.void.class <- function(class, class.env){
                         child.locs[, i] <- runif(n.children, self$lims[i, 1], self$lims[i, 2])
                     }
                     ## Generating parents.
+                    parent.locs <- self$get.parents(pars)
+                    list(points = self$delete.points(child.locs, parent.locs, pars), parents = parent.locs)
+                },
+                ## A method to get parents by simulation.
+                get.parents = function(pars){
                     expected.parents <- pars["Dp"]*self$vol
                     n.parents <- rpois(1, expected.parents)
                     parent.locs <- matrix(0, nrow = n.parents, ncol = self$dim)
                     for (i in 1:self$dim){
                         parent.locs[, i] <- runif(n.parents, self$lims[i, 1], self$lims[i, 2])
                     }
-                    list(points = self$delete.points(child.locs, parent.locs, pars))
+                    parent.locs
                 },
                 ## Overwriting method for the Palm intensity.
                 palm.intensity = function(r, pars){
@@ -845,8 +891,34 @@ set.totaldeletion.class <- function(class, class.env){
             ))
 }
 
+######
+## Class for simulating given known parent locations.
+######
+
+set.giveparent.class <- function(class, class.env){
+    ## Saving inherited class to class.env.
+    assign("giveparent.inherit", class, envir = class.env)
+    R6Class("palm_giveparent",
+            inherit = class.env$giveparent.inherit,
+            public = list(
+                parent.locs = NULL,
+                initialize = function(parent.locs, ...){
+                    self$parent.locs <- parent.locs
+                    super$initialize(...)
+                },
+                ## Overwriting method for getting parents.
+                get.parents = function(pars){
+                    if (!(ncol(self$parent.locs) == self$dim)){
+                        stop("Incorrection dimensions of parent locations.")
+                    }
+                    self$parent.locs
+                }
+            ))
+}
+
+
 ## Function to create R6 object with correct class hierarchy.
-create.obj <- function(classes, points, lims, R, child.list, sibling.list, trace, start, bounds){
+create.obj <- function(classes, points, lims, R, child.list, parent.locs, sibling.list, trace, start, bounds){
     class <- base.class.R6
     n.classes <- length(classes)
     class.env <- new.env()
@@ -857,7 +929,7 @@ create.obj <- function(classes, points, lims, R, child.list, sibling.list, trace
     if (any(classes == "twocamerachild") & !any(classes == "thomas")){
         stop("Analysis of two-camera surveys is only implemented for Thomas processes.")
     }
-    class$new(points = points, lims = lims, R = R, child.list = child.list,
+    class$new(points = points, lims = lims, R = R, child.list = child.list, parent.locs = parent.locs,
               sibling.list = sibling.list, trace = trace, classes = classes, start = start, bounds = bounds)
 }
 
