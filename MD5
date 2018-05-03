@@ -1,14 +1,14 @@
-9d33dd9c79e517f6bf9df67c02be5c8e *DESCRIPTION
-51322f7ce48a65654004aa99a2b5d4bf *NAMESPACE
-a4646bcf1c72b47c295fe51239940793 *NEWS
+c1c14c82929e3c899d6805d070532f77 *DESCRIPTION
+534cbf8683f1fcd63099c8dd0f7fddf3 *NAMESPACE
+9900d1412fc6ccef25ff2bd61b850ab6 *NEWS
 35531766b42024f8f31182adfca636b7 *R/RcppExports.R
-eea1990d9f6fe6760a285c335411c09c *R/fit-ns.r
+05671e8c51a34888e968e33591bd0a60 *R/fit-ns.r
 9b0dbe874312a0de98f86b9c92655d03 *R/helpers.r
 f4fe6fb8b569a0e01e5734d723660ef9 *R/methods.r
-e4f9c1f9ca81b6fb43a54c3797735a15 *R/palm.r
-38df23e63578cdab7f6a1255e5a66ab7 *R/refclass.r
+b036d1c7a0a29ac5183b508d7040f0ab *R/palm.r
+52a8107a4af44bda1edf57024554f91d *R/refclass.r
 74caec5e72382133ce5417d9e9e1937f *README.md
-805108b9abf09381ab1cb881211589d4 *data/examples.r
+e61543cfd19bbf6487e9c90e9b31ca8e *data/examples.rda
 eb7f1afa07bbd23d6fad6a834e7d2ccb *data/porpoise.RData
 1ca1fe05852e631c461abfcbae05cf93 *man/boot.palm.Rd
 9aa91dc77320dc04d38933df133b9ce2 *man/coef.palm.Rd
@@ -16,7 +16,7 @@ eb7f1afa07bbd23d6fad6a834e7d2ccb *data/porpoise.RData
 1a15f6e3111061d3621847233946fa85 *man/example.1D.Rd
 8f38f4c5bfeed39861e9e2777ff16827 *man/example.2D.Rd
 3d86707030d48919e2f0bacc12afb5d9 *man/example.twocamera.Rd
-4cfa7d0c5428ca29e6281e447c67012a *man/fit.ns.Rd
+a00756e08b636c5963d3073539e128c7 *man/fit.ns.Rd
 4451e5cd40a28cec7862029c71d045e7 *man/fit.twocamera.Rd
 000ac55c698133382210f9eb0cfc1000 *man/fit.void.Rd
 726a684fd5c8214b48dc89df5615b61e *man/palm.Rd
@@ -33,4 +33,4 @@ d917bf93a15707da9e0ca308968540b9 *src/RcppExports.cpp
 9e534813ce6f9f708fb4e92ad04d947b *src/palm_init.c
 f29d612bf0727fc7a453e6d6474e8948 *src/pbc_distances.cpp
 335d59b224b1d592a58e47c4dc8da816 *tests/testthat.R
-6050c71094fc758dc42bcc504739b225 *tests/testthat/test-fits.r
+8d1c21a45412b24045199c5e88c83a76 *tests/testthat/test-fits.r

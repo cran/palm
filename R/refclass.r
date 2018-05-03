@@ -67,6 +67,7 @@ set.fit.class <- function(class, class.env){
                 boots = NULL,
                 trace = NULL,
                 conv.code = NULL,
+                converged = NULL,
                 n.par = NULL,
                 set.start = NULL,
                 set.bounds = NULL,
@@ -152,8 +153,6 @@ set.fit.class <- function(class, class.env){
                     if (any(name == names(self$set.start))){
                         start <- self$set.start[name]
                     }
-                    self$par.start <- c(self$par.start, start)
-                    names(self$par.start) <- self$par.names
                     if (any(name == names(self$set.bounds))){
                         lower <- self$set.bounds[[name]][1]
                         upper <- self$set.bounds[[name]][2]
@@ -161,6 +160,14 @@ set.fit.class <- function(class, class.env){
                     self$par.upper <- c(self$par.upper, upper)
                     names(self$par.upper) <- self$par.names
                     self$par.lower <- c(self$par.lower, lower)
+                    ## Adjustment for start values on the bounds.
+                    if (start >= upper){
+                        start <- lower + 0.9*(upper - lower)
+                    } else if (start <= lower){
+                        start <- lower + 0.9*(upper - lower)
+                    }
+                    self$par.start <- c(self$par.start, start)
+                    names(self$par.start) <- self$par.names
                     names(self$par.lower) <- self$par.names
                 },
                 ## A method to set the upper and lower parameter bounds on the link scale.
@@ -212,7 +219,6 @@ set.fit.class <- function(class, class.env){
                     }
                     out
                 },
-
                 ## A method for the negative Palm likelihood function.
                 neg.log.palm.likelihood = function(pars){
                     -self$log.palm.likelihood(pars)
@@ -226,21 +232,25 @@ set.fit.class <- function(class, class.env){
                     pars <- self$invlink.pars(link.pars)
                     self$neg.log.palm.likelihood(pars)
                 },
-                
+                ## An empty method for optimisation.
+                palm.optimise = function(){},
+                ## A method for non-optimisation.
+                palm.not.optimise = function(){
+                    self$converged <- FALSE
+                    self$par.fitted.link <- rep(NA, self$n.par)
+                    names(self$par.fitted.link) <- self$par.names.link
+                    self$par.fitted <- rep(NA, self$n.par)
+                    self$conv.code <- 5
+                },
                 ## A method for model fitting.
                 fit = function(){
-                    optim.obj <- nlminb(self$par.start.link, self$link.neg.log.palm.likelihood,
-                                        fixed.link.pars = self$par.fixed.link,
-                                        est.names = self$par.names.link, fixed.names = self$fixed.names.link,
-                                        control = list(eval.max = 2000, iter.max = 1500),
-                                        lower = self$par.lower.link, upper = self$par.upper.link)
-                    if (optim.obj$convergence > 1){
-                        warning("Failed convergence.")
+                    ## If there are contrasts, fit the model. Otherwise, return something else.
+                    if (self$n.contrasts <= 1){
+                        warning("Not enough observed points to compute parameter estimates.")
+                        self$palm.not.optimise()
+                    } else {
+                        self$palm.optimise()
                     }
-                    self$par.fitted.link <- optim.obj$par
-                    names(self$par.fitted.link) <- self$par.names.link
-                    self$par.fitted <- self$invlink.pars(self$par.fitted.link)
-                    self$conv.code <- optim.obj$convergence
                 },
                 ## A method for bootstrapping.
                 boot = function(N, prog = TRUE){
@@ -257,10 +267,10 @@ set.fit.class <- function(class, class.env){
                                                sibling.list = sim.obj$sibling.list, trace = FALSE,
                                                start = self$par.fitted, bounds = self$bounds)
                         obj.boot$fit()
-                        if (obj.boot$conv.code > 1){
-                            boots[i, ] <- rep(NA, self$n.par)
+                        if (obj.boot$converged){
+                            boots[i, ] <- obj.boot$par.fitted  
                         } else {
-                            boots[i, ] <- obj.boot$par.fitted
+                            boots[i, ] <- rep(NA, self$n.par)
                         }
                         ## Updating progress bar.
                         if (prog){
@@ -329,6 +339,73 @@ set.fit.class <- function(class, class.env){
 }
 
 ######
+## Class for bobyqa() optimisation.
+######
+
+set.bobyqa.class <- function(class, class.env){
+    ## Saving inherited class to class.env.
+    assign("bobyqa.inherit", class, envir = class.env)
+    R6Class("palm_bobyqa",
+            inherit = class.env$bobyqa.inherit,
+            public = list(
+                ## A method to minimise the negative Palm likelihood.
+                palm.optimise = function(){
+                    out <- try(bobyqa(self$par.start.link, self$link.neg.log.palm.likelihood,
+                                      lower = self$par.lower.link, upper = self$par.upper.link,
+                                      fixed.link.pars = self$par.fixed.link,
+                                      est.names = self$par.names.link,
+                                      fixed.names = self$fixed.names.link,
+                                      control = list(maxfun = 2000, npt = 2*self$n.par + 1)), silent = TRUE)
+                    if (class(out)[1] == "try-error"){
+                        self$palm.not.optimise()
+                    } else {
+                        if (out$ierr > 0){
+                            warning("Failed convergence.")
+                            self$converged <- FALSE
+                        } else {
+                            self$converged <- TRUE
+                        }
+                        self$par.fitted.link <- out$par
+                        names(self$par.fitted.link) <- self$par.names.link
+                        self$par.fitted <- self$invlink.pars(self$par.fitted.link)
+                        self$conv.code <- out$ierr
+                    }
+                }
+            ))
+}
+    
+######
+## Class for nlminb() optimisation.
+######
+
+set.nlminb.class <- function(class, class.env){
+    ## Saving inherited class to class.env.
+    assign("nlminb.inherit", class, envir = class.env)
+    R6Class("palm_nlminb",
+            inherit = class.env$nlminb.inherit,
+            public = list(
+                ## A method to minimise the negative Palm likelihood.
+                palm.optimise = function(){
+                    out <- nlminb(self$par.start.link, self$link.neg.log.palm.likelihood,
+                                  fixed.link.pars = self$par.fixed.link,
+                                  est.names = self$par.names.link, fixed.names = self$fixed.names.link,
+                                  control = list(eval.max = 2000, iter.max = 1500),
+                                  lower = self$par.lower.link, upper = self$par.upper.link)
+                    if (out$convergence > 1){
+                        warning("Failed convergence.")
+                        self$converged <- FALSE
+                    } else {
+                        self$converged <- TRUE
+                    }
+                    self$par.fitted.link <- out$par
+                    names(self$par.fitted.link) <- self$par.names.link
+                    self$par.fitted <- self$invlink.pars(self$par.fitted.link)
+                    self$conv.code <- out$convergence
+                }
+            ))
+}
+    
+######
 ## Class for periodic boundary conditions.
 ######
 
@@ -344,16 +421,21 @@ set.pbc.class <- function(class, class.env){
                     contrast.pairs <- matrix(0, nrow = self$n.points^2 -
                                                     self$n.points, ncol = 2)
                     k <- 1
-                    for (i in 1:(self$n.points - 1)){
-                        for (j in (i + 1):self$n.points){
-                            contrast.pairs[k, ] <- c(i, j)
-                            contrast.pairs[k + 1, ] <- c(i, j)
-                            k <- k + 2
+                    if (self$n.points > 1){
+                        for (i in 1:(self$n.points - 1)){
+                            for (j in (i + 1):self$n.points){
+                                contrast.pairs[k, ] <- c(i, j)
+                                contrast.pairs[k + 1, ] <- c(i, j)
+                                k <- k + 2
+                            }
                         }
+                        contrasts <- pbc_distances(points = self$points, lims = self$lims)
+                        self$contrast.pairs <- contrast.pairs[contrasts <= self$R, ]
+                        self$contrasts <- contrasts[contrasts <= self$R]
+                    } else {
+                        self$contrast.pairs <- contrast.pairs
+                        self$contrasts <- numeric(0)
                     }
-                    contrasts <- pbc_distances(points = self$points, lims = self$lims)
-                    self$contrast.pairs <- contrast.pairs[contrasts <= self$R, ]
-                    self$contrasts <- contrasts[contrasts <= self$R]
                     super$get.contrasts()
                 }
             ))
@@ -433,14 +515,14 @@ set.ns.class <- function(class, class.env){
                     sibling.list <- sim.n.children$sibling.list
                     child.locs <- matrix(0, nrow = sum(n.children), ncol = self$dim)
                     j <- 0
-                    for (i in 1:n.parents){
+                    for (i in seq_along(n.children)){
                         if (n.children[i] > 0){
                             child.locs[(j + 1):(j + n.children[i]), ] <-
                                 self$simulate.children(n.children[i], parent.locs[i, ], pars)
                             j <- j + n.children[i]
                         }
                     }
-                    parent.ids <- rep(1:n.parents, times = n.children)
+                    parent.ids <- rep(seq_along(n.children), times = n.children)
                     trimmed <- self$trim.points(child.locs, output.indices = TRUE)
                     list(points = child.locs[trimmed, , drop = FALSE],
                          parents = parent.locs,
@@ -928,6 +1010,9 @@ create.obj <- function(classes, points, lims, R, child.list, parent.locs, siblin
     }
     if (any(classes == "twocamerachild") & !any(classes == "thomas")){
         stop("Analysis of two-camera surveys is only implemented for Thomas processes.")
+    }
+    if (!is.null(points) & !is.matrix(points)){
+        stop("The argument 'points' must be a matrix.")
     }
     class$new(points = points, lims = lims, R = R, child.list = child.list, parent.locs = parent.locs,
               sibling.list = sibling.list, trace = trace, classes = classes, start = start, bounds = bounds)
