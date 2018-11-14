@@ -4,7 +4,7 @@
 #' the Palm likelihood. This approach was first proposed by Tanaka et
 #' al. (2008) for two-dimensional Thomas processes. Further
 #' generalisations were made by Stevenson, Borchers, and Fewster (in
-#' revision) and Jones-Todd et al. (in submission).
+#' press) and Jones-Todd et al. (in press).
 #' 
 #' The parameter \code{D} is the density of parent points, which is
 #' always estimated. Possible additional parameters are
@@ -13,11 +13,11 @@
 #'         parent (when \code{child.dist = "pois"}).
 #' 
 #'   \item \code{p}, the proportion of the \code{x} possible children
-#'         are generated (when \code{child.dist = "binomx"}).
+#'         that are generated (when \code{child.dist = "binomx"}).
 #'
 #'   \item \code{kappa}, the average length of the surface phase of a
 #'         diving cetacean (when \code{child.dist = "twocamera"}; see
-#'         Stevenson, Borchers, and Fewster, in revision).
+#'         Stevenson, Borchers, and Fewster, in press).
 #'
 #'   \item \code{sigma}, the standard deviation of dispersion along
 #'         each dimension (when \code{disp} = "gaussian").
@@ -34,25 +34,30 @@
 #' the survey area; (iii) a component named \code{l}, providing the
 #' time lag between cameras (in seconds); and (iv) a component named
 #' \code{tau}, providing the mean dive-cycle duration. See Stevenson,
-#' Borchers, and Fewster (in revision) for details.
+#' Borchers, and Fewster (in press) for details.
 #'
-#' @references Jones-Todd, C. M., Caie, P., Illian, J., Stevenson,
+#' @references Jones-Todd, C. M., Caie, P., Illian, J. B., Stevenson,
 #'     B. C., Savage, A., Harrison, D. J., and Bown, J. L. (in
-#'     submission). Identifying unusual structures in tissue sections
-#'     of colon cancer patients using point pattern analysis.
+#'     press). Identifying prognostic structural features in tissue
+#'     sections of colon cancer patients using point pattern
+#'     analysis. \emph{Statistics in Medicine}.
 #' @references Stevenson, B. C., Borchers, D. L., and Fewster,
-#'     R. M. (in revision) Cluster capture-recapture to account for
+#'     R. M. (in press) Cluster capture-recapture to account for
 #'     identification uncertainty on aerial surveys of animal
-#'     populations.
+#'     populations. \emph{Biometrics}.
 #' @references Tanaka, U., Ogata, Y., and Stoyan, D. (2008) Parameter
 #'     estimation and model selection for Neyman-Scott point
 #'     processes. \emph{Biometrical Journal}, \strong{50}: 43--57.
 #'
-#' @param points A matrix containing locations of observed points,
-#'     where each row corresponds to a point and each column
-#'     corresponds to a dimension.
-#' @param lims A matrix with two columns, corresponding to the upper
-#'     and lower limits of each dimension, respectively.
+#' @param points A matrix or list of matrices containing locations of
+#'     observed points, where each row corresponds to a point and each
+#'     column corresponds to a dimension. If a list, then the patterns
+#'     are assumed to be independent and a single process is fitted to
+#'     all.
+#' @param lims A matrix or list of matrices with two columns,
+#'     corresponding to the upper and lower limits of each dimension,
+#'     respectively. If a list, then each matrix provides the limits
+#'     for the corresponding pattern in \code{points}.
 #' @param disp A character string indicating the distribution of
 #'     children around their parents. Use \code{"gaussian"} for
 #'     multivariate normal dispersion with standard deviation
@@ -79,7 +84,8 @@
 #'     providing the probability that a sibling is successfully
 #'     identified as a sibling; and (iii) beta, providing the
 #'     probability that a nonsibling is successfully identified as a
-#'     nonsibling.
+#'     nonsibling. For multi-pattern fitting, this object must be a
+#'     list of such lists, one for each pattern.
 #' @param edge.correction The method used for the correction of edge
 #'     effects. Either \code{"pbc"} for periodic boundary conditions,
 #'     or \code{"buffer"} for a buffer-zone correction.
@@ -90,10 +96,10 @@
 #'     for the named parameter.
 #' @param trace Logical; if \code{TRUE}, parameter values are printed
 #'     to the screen for each iteration of the optimisation procedure.
-#' @param use.bobyqa Logial; if \code{TRUE} the \link{bobyqa} function
+#' @param use.bobyqa Logical; if \code{TRUE} the \link{bobyqa} function
 #'     is used for optimisation. Otherwise the \link{nlminb} function
 #'     is used. Note that \link{bobyqa} seems to be less stable than
-#'     \code{nlminb}, but does not require calculation of the Palm
+#'     \link{nlminb}, but does not require calculation of the Palm
 #'     likelihood's partial derivatives.
 #'
 #' @inheritParams fit.ns
@@ -163,7 +169,12 @@ fit.ns <- function(points, lims, R, disp = "gaussian", child.dist = "pois", chil
 #' the survey area; (iii) a component named \code{l}, providing the
 #' time lag between cameras (in seconds); and (iv) a component named
 #' \code{tau}, providing the mean dive-cycle duration. See Stevenson,
-#' Borchers, and Fewster (in revision) for details.
+#' Borchers, and Fewster (in press) for details.
+#'
+#' @references Stevenson, B. C., Borchers, D. L., and Fewster,
+#'     R. M. (in press) Cluster capture-recapture to account for
+#'     identification uncertainty on aerial surveys of animal
+#'     populations. \emph{Biometrics}.
 #'
 #' @param pars A named vector containing the values of the parameters
 #'     of the process that generates the points.
@@ -205,22 +216,22 @@ sim.ns <- function(pars, lims, disp = "gaussian", child.dist = "pois", parents =
 #' Estimates parameters for a void point process by maximising the
 #' Palm likelihood. This approach was first proposed by Tanaka et
 #' al. (2008) for two-dimensional Thomas processes. Generalisation to
-#' d-dimensional void processes was made by Jones-Todd (in
-#' submission).
+#' d-dimensional void processes was made by Jones-Todd et al. (in
+#' press).
 #'
-#' Parameters to estimate are as follows:
-#' \itemize{
-#'   \item \code{Dc}, the baseline density of points prior to the deletion process.
+#' Parameters to estimate are as follows: \itemize{ \item \code{Dc},
+#' the baseline density of points prior to the deletion process.
 #'
 #'   \item \code{Dp}, the density of unobserved parents that cause voids.
 #'
 #'   \item \code{tau}, the radius of the deletion process centred at each parent.
 #' }
 #'
-#' @references Jones-Todd, C. M., Caie, P., Illian, J., Stevenson,
+#' @references Jones-Todd, C. M., Caie, P., Illian, J. B., Stevenson,
 #'     B. C., Savage, A., Harrison, D. J., and Bown, J. L. (in
-#'     submission). Identifying unusual structures in tissue sections
-#'     of colon cancer patients using point pattern analysis.
+#'     press). Identifying prognostic structural features in tissue
+#'     sections of colon cancer patients using point pattern
+#'     analysis. \emph{Statistics in Medicine}.
 #' @references Tanaka, U., Ogata, Y., and Stoyan, D. (2008) Parameter
 #'     estimation and model selection for Neyman-Scott point
 #'     processes. \emph{Biometrical Journal}, \strong{50}: 43--57.
@@ -247,9 +258,11 @@ sim.ns <- function(pars, lims, disp = "gaussian", child.dist = "pois", parents =
 #' }
 #' 
 #' @export
-fit.void <- function(points, lims, R, edge.correction = "pbc", start = NULL, bounds = NULL, trace = FALSE){
+fit.void <- function(points, lims, R, edge.correction = "pbc", start = NULL, bounds = NULL,
+                     use.bobyqa = FALSE, trace = FALSE){
     classes.list <- setup.classes(fit = TRUE, family = "void", family.info = NULL,
-                                  fit.info = NULL)
+                                  fit.info = list(edge.correction = edge.correction,
+                                                  use.bobyqa = use.bobyqa))
     obj <- create.obj(classes = classes.list$classes, points = points, lims = lims, R = R,
                       child.list = NULL, parent.locs = NULL, sibling.list = NULL,
                       trace = trace, start = start, bounds = bounds)
@@ -396,7 +409,7 @@ setup.classes <- function(fit, family, family.info, fit.info){
 #'
 #' This function is simply a wrapper for \code{fit.ns}, and
 #' facilitates the fitting of the model proposed by Stevenson,
-#' Borchers, and Fewster (in revision). This function presents the
+#' Borchers, and Fewster (in press). This function presents the
 #' parameter \code{D.2D} (two-dimensional cetacean density in
 #' cetaceans per square km) rather than \code{D} for enhanced
 #' interpretability.
@@ -409,9 +422,9 @@ setup.classes <- function(fit, family, family.info, fit.info){
 #'     without capture histories. \emph{Statistical Science},
 #'     \strong{31}: 245--258.
 #' @references Stevenson, B. C., Borchers, D. L., and Fewster,
-#'     R. M. (in revision) Cluster capture-recapture to account for
+#'     R. M. (in press) Cluster capture-recapture to account for
 #'     identification uncertainty on aerial surveys of animal
-#'     populations.
+#'     populations. \emph{Biometrics}.
 #'
 #' @param points A vector (or single-column matrix) containing the
 #'     distance along the transect that each detection was made.

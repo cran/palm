@@ -5,19 +5,47 @@
 base.class.R6 <- R6Class("palm",
                          public = list(
                              ## Setting fields.
+                             n.patterns = NULL,
                              lims = NULL,
+                             lims.list = NULL,
                              vol = NULL,
+                             vol.list = NULL,
                              dim = NULL,
+                             dim.list = NULL,
                              classes = NULL,
                              ## Initialisation method.
-                             initialize = function(lims, classes, ...){
-                                 self$lims <- lims
-                                 self$vol <- prod(apply(self$lims, 1, diff))
-                                 self$dim <- nrow(lims)
+                             initialize = function(lims.list, classes, ...){
+                                 self$lims.list <- lims.list
+                                 self$vol.list <- lapply(self$lims.list,
+                                                         function(x) prod(apply(x, 1, diff)))
+                                 self$dim.list <- lapply(self$lims.list,
+                                                         function(x) nrow(x))
+                                 self$n.patterns <- length(lims.list)
                                  self$classes <- classes
                              },
-                             ## An empty method for simulation.
-                             simulate = function(pars){},
+                             ## A method to set up a new pattern.
+                             setup.pattern = function(pattern){
+                                 if (pattern > self$n.patterns){
+                                     stop("Pattern index exceeds the number of patterns")
+                                 }
+                                 self$lims <- self$lims.list[[pattern]]
+                                 self$vol <-  self$vol.list[[pattern]]
+                                 self$dim <- self$dim.list[[pattern]]
+                             },
+                             ## A method to simulate multiple patterns.
+                             simulate = function(pars = self$par.fitted){
+                                 out <- vector(mode = "list", length = self$n.patterns)
+                                 for (i in 1:self$n.patterns){
+                                     self$setup.pattern(i)
+                                     out[[i]] <- self$simulate.pattern(pars)
+                                 }
+                                 if (self$n.patterns == 1){
+                                     out <- out[[1]]
+                                 }
+                                 out
+                             },
+                             ## A method to simulate a single pattern.
+                             simulate.pattern = function(pars){},
                              ## A method to trim points to the observation window.
                              trim.points = function(points, output.indices = FALSE){
                                  in.window <- rep(TRUE, nrow(points))
@@ -58,11 +86,16 @@ set.fit.class <- function(class, class.env){
     R6Class("palm_fit",
             inherit = class.env$fit.inherit,
             public = list(
+                points.list = NULL,
                 points = NULL,
                 n.points = NULL,
+                n.points.list = NULL,
                 contrasts = NULL,
+                contrasts.list = NULL,
                 n.contrasts = NULL,
+                n.contrasts.list = NULL,
                 contrast.pairs = NULL,
+                contrast.pairs.list = NULL,
                 R = NULL,
                 boots = NULL,
                 trace = NULL,
@@ -86,23 +119,48 @@ set.fit.class <- function(class, class.env){
                 par.lower.link = NULL,
                 par.upper = NULL,
                 par.upper.link = NULL,
-                initialize = function(points, R, trace, start, bounds, ...){
+                pi.multiplier = NULL,
+                ## Initialisation method.
+                initialize = function(points.list, R, trace, start, bounds, ...){
                     super$initialize(...)
-                    self$points <- points
-                    self$n.points <- nrow(points)
+                    self$points.list <- points.list
+                    ## Checking list of points and list of lims have the same length.
+                    if (length(self$points.list) != length(self$lims.list)){
+                        stop("The list 'points' must have the same number of components as 'lims'.")
+                    }
                     self$R <- R
+                    ## Creating numbers of points and contrasts for each pattern.
+                    self$n.points.list <- lapply(points.list, nrow)
+                    self$contrasts.list <- list()
+                    self$contrast.pairs.list <- list()
+                    self$n.contrasts.list <- list()
+                    for (i in 1:self$n.patterns){
+                        self$get.contrasts(i)
+                    }
+                    ## Starting out with the first pattern for start values and such.
+                    self$setup.pattern(1)
                     self$trace <- trace
                     self$set.start <- start
                     self$set.bounds <- bounds
-                    self$get.contrasts()
                     self$get.pars()
                     self$n.par <- length(self$par.start)
                     self$par.start.link <- self$link.pars(self$par.start)
                     self$get.link.bounds()
                 },
+                ## Overwriting the method to set up a new pattern.
+                setup.pattern = function(pattern, do.contrasts = TRUE){
+                    super$setup.pattern(pattern)
+                    self$points <- self$points.list[[pattern]]
+                    self$n.points <- self$n.points.list[[pattern]]
+                    if (do.contrasts){
+                        self$contrast.pairs <- self$contrast.pairs.list[[pattern]]
+                        self$contrasts <- self$contrasts.list[[pattern]]
+                        self$n.contrasts <- self$n.contrasts.list[[pattern]]
+                    }
+                },
                 ## An empty method for getting contrasts.
-                get.contrasts = function(){
-                    self$n.contrasts <- length(self$contrasts)
+                get.contrasts = function(pattern){
+                    self$n.contrasts.list[[pattern]] <- length(self$contrasts.list[[pattern]])
                 },
                 ## A method for getting the parameters across all classes.
                 get.pars = function(){
@@ -194,43 +252,50 @@ set.fit.class <- function(class, class.env){
                     out
                 },               
 
+                ## A method for the objective function.
+                obj.fun = function(link.pars, fixed.link.pars = NULL,
+                                         est.names = NULL, fixed.names = NULL){
+                    combined.pars <- c(link.pars, fixed.link.pars)
+                    names(combined.pars) <- c(est.names, fixed.names)
+                    link.pars <- combined.pars[self$par.names.link]
+                    pars <- self$invlink.pars(link.pars)
+                    obj.fun.components <- numeric(self$n.patterns)
+                    ## Summing over all the patterns.
+                    for (i in 1:self$n.patterns){
+                        self$setup.pattern(i)
+                        obj.fun.components[i] <- self$neg.log.palm.likelihood(pars)
+                    }
+                    out <- sum(obj.fun.components)
+                    ll <- -out
+                    if (self$trace){
+                        for (i in 1:self$n.par){
+                            cat(self$par.names[i], ": ", sep = "")
+                            cat(pars[i], ", ", sep = "")
+                        }
+                        cat("Log-lik: ", ll, "\n", sep = "")
+                    }
+                    out
+                },
                 ## An empty method for the Palm intensity.
                 palm.intensity = function(r, pars){},
-                ## A default method for the sum of the log Palm intensities.
+                ## An empty method for the sum of the log Palm intensities.
                 sum.log.intensities = function(pars){
-                    sum(log(self$n.points*self$palm.intensity(self$contrasts, pars)))
+                    sum(log(self$pi.multiplier*self$palm.intensity(self$contrasts, pars)))
                 },
                 ## A default method for the integral in the Palm likelihood.
                 palm.likelihood.integral = function(pars){
                     f <- function(r, pars){
                         self$palm.intensity(r, pars)*Sd(r, self$dim)
                     }
-                    -self$n.points*integrate(f, lower = 0, upper = self$R, pars = pars)$value
+                    -self$pi.multiplier*integrate(f, lower = 0, upper = self$R, pars = pars)$value
                 },
                 ## A default method for the log of the Palm likelihood function.
                 log.palm.likelihood = function(pars){
-                    out <- self$sum.log.intensities(pars) + self$palm.likelihood.integral(pars)
-                    if (self$trace){
-                        for (i in 1:self$n.par){
-                            cat(self$par.names[i], ": ", sep = "")
-                            cat(pars[i], ", ", sep = "")
-                        }
-                        cat("Log-lik: ", out, "\n", sep = "")
-                    }
-                    out
+                    self$sum.log.intensities(pars) + self$palm.likelihood.integral(pars)
                 },
                 ## A method for the negative Palm likelihood function.
                 neg.log.palm.likelihood = function(pars){
                     -self$log.palm.likelihood(pars)
-                },
-                ## A method for the negative Palm likelihood function with linked parameters.
-                link.neg.log.palm.likelihood = function(link.pars, fixed.link.pars = NULL,
-                                                        est.names = NULL, fixed.names = NULL){
-                    combined.pars <- c(link.pars, fixed.link.pars)
-                    names(combined.pars) <- c(est.names, fixed.names)
-                    link.pars <- combined.pars[self$par.names.link]
-                    pars <- self$invlink.pars(link.pars)
-                    self$neg.log.palm.likelihood(pars)
                 },
                 ## An empty method for optimisation.
                 palm.optimise = function(){},
@@ -261,6 +326,10 @@ set.fit.class <- function(class, class.env){
                     }
                     for (i in 1:N){
                         sim.obj <- self$simulate()
+                        if (self$n.patterns > 1){
+                            sim.obj$points <- lapply(sim.obj, function(x) x$points)
+                            sim.obj$sibling.list <- lapply(sim.obj, function(x) x$sibling.list)
+                        }
                         ## Doesn't matter that sibling.list is non-null below, as sibling class is not passed.
                         obj.boot <- create.obj(classes = self$classes, points = sim.obj$points, lims = self$lims,
                                                R = self$R, child.list = self$child.list,
@@ -331,7 +400,7 @@ set.fit.class <- function(class, class.env){
                         n.interval <- sum(dists <= (midpoints[i] + halfwidth)) -
                             sum(dists <= (midpoints[i] - halfwidth))
                         area <- Vd(midpoints[i] + halfwidth, self$dim) -  Vd(midpoints[i] - halfwidth, self$dim)
-                        intensities[i] <- n.interval/(self$n.points*area)
+                        intensities[i] <- n.interval/(self$pi.multiplier*area)
                     }
                     list(x = midpoints, y = intensities)
                 }
@@ -350,7 +419,7 @@ set.bobyqa.class <- function(class, class.env){
             public = list(
                 ## A method to minimise the negative Palm likelihood.
                 palm.optimise = function(){
-                    out <- try(bobyqa(self$par.start.link, self$link.neg.log.palm.likelihood,
+                    out <- try(bobyqa(self$par.start.link, self$obj.fun,
                                       lower = self$par.lower.link, upper = self$par.upper.link,
                                       fixed.link.pars = self$par.fixed.link,
                                       est.names = self$par.names.link,
@@ -386,7 +455,7 @@ set.nlminb.class <- function(class, class.env){
             public = list(
                 ## A method to minimise the negative Palm likelihood.
                 palm.optimise = function(){
-                    out <- nlminb(self$par.start.link, self$link.neg.log.palm.likelihood,
+                    out <- nlminb(self$par.start.link, self$obj.fun,
                                   fixed.link.pars = self$par.fixed.link,
                                   est.names = self$par.names.link, fixed.names = self$fixed.names.link,
                                   control = list(eval.max = 2000, iter.max = 1500),
@@ -415,28 +484,32 @@ set.pbc.class <- function(class, class.env){
     R6Class("palm_pbc",
             inherit = class.env$pbc.inherit,
             public = list(
+                ## Overwriting the method to set up a new pattern.
+                setup.pattern = function(pattern, do.contrasts = TRUE){
+                    super$setup.pattern(pattern, do.contrasts)
+                    self$pi.multiplier <- self$n.points/2
+                },
                 ## A method to generate contrasts.
-                get.contrasts = function(){
+                get.contrasts = function(pattern){
+                    self$setup.pattern(pattern, do.contrasts = FALSE)
                     ## Saving which contrast applies to which pair of observations.
-                    contrast.pairs <- matrix(0, nrow = self$n.points^2 -
-                                                    self$n.points, ncol = 2)
+                    contrast.pairs <- matrix(0, nrow = (self$n.points^2 - self$n.points)/2, ncol = 2)
                     k <- 1
                     if (self$n.points > 1){
                         for (i in 1:(self$n.points - 1)){
                             for (j in (i + 1):self$n.points){
                                 contrast.pairs[k, ] <- c(i, j)
-                                contrast.pairs[k + 1, ] <- c(i, j)
-                                k <- k + 2
+                                k <- k + 1
                             }
                         }
                         contrasts <- pbc_distances(points = self$points, lims = self$lims)
-                        self$contrast.pairs <- contrast.pairs[contrasts <= self$R, ]
-                        self$contrasts <- contrasts[contrasts <= self$R]
+                        self$contrast.pairs.list[[pattern]] <- contrast.pairs[contrasts <= self$R, ]
+                        self$contrasts.list[[pattern]] <- contrasts[contrasts <= self$R]
                     } else {
-                        self$contrast.pairs <- contrast.pairs
-                        self$contrasts <- numeric(0)
+                        self$contrast.pairs.list[[pattern]] <- contrast.pairs
+                        self$contrasts[[pattern]] <- numeric(0)
                     }
-                    super$get.contrasts()
+                    super$get.contrasts(pattern)
                 }
             ))
 }
@@ -447,12 +520,18 @@ set.pbc.class <- function(class, class.env){
 
 set.buffer.class <- function(class, class.env){
     ## Saving inherited class to class.env.
-    assign("pbc.inherit", class, envir = class.env)
-    R6Class("palm_pbc",
-            inherit = class.env$pbc.inherit,
+    assign("buffer.inherit", class, envir = class.env)
+    R6Class("palm_buffer",
+            inherit = class.env$buffer.inherit,
             public = list(
+                ## Overwriting the method to set up a new pattern.
+                setup.pattern = function(pattern, do.contrasts = TRUE){
+                    super$setup.pattern(pattern, do.contrasts)
+                    self$pi.multiplier <- self$n.points
+                },
                 ## A method to generate contrasts.
-                get.contrasts = function(){
+                get.contrasts = function(pattern){
+                    self$setup.pattern(pattern, do.contrasts = FALSE)
                     ## Getting rid of contrasts between two external points.
                     buffer.keep <- buffer_keep(points = self$points, lims = self$lims,
                                                R = self$R)
@@ -463,9 +542,9 @@ set.buffer.class <- function(class, class.env){
                     contrast.pairs.2 <- as.vector(contrast.pairs.2[buffer.keep])
                     contrast.pairs <- cbind(contrast.pairs.1, contrast.pairs.2)
                     ## Now truncating to contrasts less than R.
-                    self$contrasts <- contrasts[contrasts <= self$R] 
-                    self$contrast.pairs <- contrast.pairs[contrasts <= self$R, ]
-                    super$get.contrasts()
+                    self$contrasts.list[[pattern]] <- contrasts[contrasts <= self$R] 
+                    self$contrast.pairs.list[[pattern]] <- contrast.pairs[contrasts <= self$R, ]
+                    super$get.contrasts(pattern)
                 }
             ))
 }
@@ -506,8 +585,8 @@ set.ns.class <- function(class, class.env){
                     out[which.D] <- self$par.invlinks[[which.D]](pars, out)
                     out
                 },
-                ## Overwriting simulation method.
-                simulate = function(pars = self$par.fitted){
+                ## Overwriting simulation methods.
+                simulate.pattern = function(pars = self$par.fitted){
                     parent.locs <- self$get.parents(pars)
                     n.parents <- nrow(parent.locs)
                     sim.n.children <- self$simulate.n.children(n.parents, pars)
@@ -587,19 +666,37 @@ set.sibling.class <- function(class, class.env){
             inherit = class.env$sibling.inherit,
             public = list(
                 siblings = NULL,
+                ## Lol one day you'll get a bug because you're an
+                ## idiot and you have objects called 'sibling.list'
+                ## and 'siblings.list' and you'll be so mad.
+                siblings.list = NULL,
+                sibling.list = NULL,
                 sibling.mat = NULL,
                 sibling.alpha = NULL,
                 sibling.beta = NULL,
+                ## Initialisation method.
                 initialize = function(sibling.list, ...){
-                    self$sibling.mat <- sibling.list$sibling.mat
-                    self$sibling.alpha <- sibling.list$alpha
-                    self$sibling.beta <- sibling.list$beta
+                    self$sibling.list <- sibling.list
                     super$initialize(...)
-                    self$get.siblings()
+                    self$siblings.list <- list()
+                    for (i in 1:self$n.patterns){
+                        self$get.siblings(i)
+                    }
+                },
+                ## Overwriting the method to set up a new pattern.
+                setup.pattern = function(pattern, do.contrasts = TRUE, do.siblings = TRUE){
+                    super$setup.pattern(pattern, do.contrasts)
+                    self$sibling.mat <- self$sibling.list[[pattern]]$sibling.mat
+                    self$sibling.alpha <- self$sibling.list[[pattern]]$alpha
+                    self$sibling.beta <- self$sibling.list[[pattern]]$beta
+                    if (do.siblings){
+                        self$siblings <- self$siblings.list[[pattern]]
+                    }
                 },
                 ## A method to get vector of sibling relationships
                 ## that matches with the contrasts.
-                get.siblings = function(){
+                get.siblings = function(pattern){
+                    self$setup.pattern(pattern, do.siblings = FALSE)
                     siblings <- numeric(self$n.contrasts)
                     for (i in 1:self$n.contrasts){
                         pair <- self$contrast.pairs[i, ]
@@ -610,7 +707,7 @@ set.sibling.class <- function(class, class.env){
                     ## 2 for unknown sibling status.
                     siblings <- as.numeric(siblings)
                     siblings[is.na(siblings)] <- 2
-                    self$siblings <- siblings
+                    self$siblings.list[[pattern]] <- siblings
                 },
                 ## Overwriting the sum of the log intensities.
                 sum.log.intensities = function(pars){
@@ -721,6 +818,7 @@ set.twocamerachild.class <- function(class, class.env){
                     self$twocamera.l <- child.list$twocamera.l
                     self$twocamera.tau <- child.list$twocamera.tau
                     super$initialize(...)
+                    self$setup.pattern(1)
                     if (self$dim != 1){
                         stop("Analysis of two-camera surveys is only implemented for one-dimensional processes.")
                     }
@@ -732,13 +830,13 @@ set.twocamerachild.class <- function(class, class.env){
                                   upper = self$twocamera.tau)
                 },
                 ## Overwriting base simulation method in case D.2D is provided.
-                simulate = function(pars = self$par.fitted){
+                simulate.pattern = function(pars = self$par.fitted){
                     if (any(names(pars) == "D.2D")){
                         which.D <- which(names(pars) == "D.2D")
                         pars[which.D] <- 2*pars[which.D]*self$twocamera.b
                         names(pars)[which.D] <- "D"
                     }
-                    super$simulate(pars)
+                    super$simulate.pattern(pars)
                 },
                 ## Simulation method for the number of children per parent.
                 simulate.n.children = function(n, pars){
@@ -819,7 +917,7 @@ set.thomas.class <- function(class, class.env){
                 },
                 ## Overwriting method for the integral in the Palm likelihood.
                 palm.likelihood.integral = function(pars){
-                    -self$n.points*(pars["D"]*self$child.expectation(pars)*Vd(self$R, self$dim) +
+                    -self$pi.multiplier*(pars["D"]*self$child.expectation(pars)*Vd(self$R, self$dim) +
                                     self$sibling.expectation(pars)*self$Fq(self$R, pars))
                 },
                 ## Overwriting method for the PDF of Q.
@@ -918,7 +1016,7 @@ set.void.class <- function(class, class.env){
                     self$add.pars(name = "Dc", link = log, start = self$n.points/self$vol, lower = 0, upper = Inf)
                 },
                 ## Overwriting simulation method.
-                simulate = function(pars = self$par.fitted){
+                simulate.pattern = function(pars = self$par.fitted){
                     ## Generating children.
                     expected.children <- pars["Dc"]*self$vol
                     n.children <- rpois(1, expected.children)
@@ -1011,11 +1109,20 @@ create.obj <- function(classes, points, lims, R, child.list, parent.locs, siblin
     if (any(classes == "twocamerachild") & !any(classes == "thomas")){
         stop("Analysis of two-camera surveys is only implemented for Thomas processes.")
     }
-    if (!is.null(points) & !is.matrix(points)){
-        stop("The argument 'points' must be a matrix.")
+    if (!is.null(points) & !(is.matrix(points) | is.list(points))){
+        stop("The argument 'points' must be a matrix, or a list of matrices.")
     }
-    class$new(points = points, lims = lims, R = R, child.list = child.list, parent.locs = parent.locs,
-              sibling.list = sibling.list, trace = trace, classes = classes, start = start, bounds = bounds)
+    if (is.matrix(points)){
+        points <- list(points)
+        sibling.list <- list(sibling.list)
+    }
+    if (is.matrix(lims)){
+        lims <- list(lims)
+    }
+    class$new(points.list = points, lims.list = lims, R = R,
+              child.list = child.list, parent.locs = parent.locs,
+              sibling.list = sibling.list, trace = trace,
+              classes = classes, start = start, bounds = bounds)
 }
 
 ## Some objects to get around R CMD check.

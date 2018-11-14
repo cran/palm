@@ -95,3 +95,31 @@ test_that(
                      tolerance = 0.001)
     })
 
+test_that(
+    "Void process simulation and model fitting.",
+    {
+        set.seed(2468)
+        ## Simulation.
+        void.data <- sim.void(c(Dc = 500, Dp = 100, tau = 0.05), rbind(c(0, 1), c(0, 1)))
+        expect_equal(void.data$points[22, 1], expected = 0.2294614180, tolerance = 1e-6)
+        ## Model fitting.
+        fit <- fit.void(void.data$points, lims = rbind(c(0, 1), c(0, 1)), R = 0.5,
+                        start = c(Dc = 1000, Dp = 20, tau = 0.075))
+        expect_equal(fit$log.palm.likelihood(fit$par.fitted),
+                     expected = 166313.248625127, tolerance = 0.001)
+    })
+
+test_that(
+    "Multipattern simulation and model fitting.",
+    {
+        set.seed(3210)
+        ## Spatial domain limits.
+        multi.lims <- list(rbind(c(0, 1), c(0, 1)), rbind(c(0, 1), c(0, 2)))
+        ## Simulation.
+        multipattern.data <- sim.ns(c(D = 5, lambda = 10, sigma = 0.025), lims = multi.lims)
+        expect_equal(multipattern.data[[1]]$points[1, 1], expected = 0.3199291, tolerance = 1e-6)
+        expect_equal(multipattern.data[[2]]$points[1, 1], expected = 0.4434522, tolerance = 1e-6)
+        ## Model fitting.
+        fit <- fit.ns(lapply(multipattern.data, function(x) x$points), lims = multi.lims, R = 0.5)
+        expect_equal(coef(fit), expected = c(D = 3.4247809, lambda = 9.3783646, sigma = 0.0203175))
+    })

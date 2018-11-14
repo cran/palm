@@ -4,15 +4,17 @@
 \alias{sim.ns}
 \title{Simulating points from a Neyman-Scott point process}
 \usage{
-sim.ns(pars, lims, disp = "gaussian", child.dist = "pois", parents = NULL,
-  child.info = NULL)
+sim.ns(pars, lims, disp = "gaussian", child.dist = "pois",
+  parents = NULL, child.info = NULL)
 }
 \arguments{
 \item{pars}{A named vector containing the values of the parameters
 of the process that generates the points.}
 
-\item{lims}{A matrix with two columns, corresponding to the upper
-and lower limits of each dimension, respectively.}
+\item{lims}{A matrix or list of matrices with two columns,
+corresponding to the upper and lower limits of each dimension,
+respectively. If a list, then each matrix provides the limits
+for the corresponding pattern in \code{points}.}
 
 \item{disp}{A character string indicating the distribution of
 children around their parents. Use \code{"gaussian"} for
@@ -60,7 +62,7 @@ zone; (ii) a component named \code{b}, providing the halfwidth of
 the survey area; (iii) a component named \code{l}, providing the
 time lag between cameras (in seconds); and (iv) a component named
 \code{tau}, providing the mean dive-cycle duration. See Stevenson,
-Borchers, and Fewster (in revision) for details.
+Borchers, and Fewster (in press) for details.
 }
 \examples{
 ## Simulating from a one-dimensional Thomas process.
@@ -69,4 +71,10 @@ data.thomas <- sim.ns(c(D = 10, lambda = 5, sigma = 0.025), lims = rbind(c(0, 1)
 data.matern <- sim.ns(c(D = 10, lambda = 10, tau = 0.1), disp = "uniform",
                       lims = rbind(c(0, 1), c(0, 2), c(0, 3)))
 
+}
+\references{
+Stevenson, B. C., Borchers, D. L., and Fewster,
+    R. M. (in press) Cluster capture-recapture to account for
+    identification uncertainty on aerial surveys of animal
+    populations. \emph{Biometrics}.
 }

@@ -5,15 +5,19 @@
 \title{Fitting a model to a void point process}
 \usage{
 fit.void(points, lims, R, edge.correction = "pbc", start = NULL,
-  bounds = NULL, trace = FALSE)
+  bounds = NULL, use.bobyqa = FALSE, trace = FALSE)
 }
 \arguments{
-\item{points}{A matrix containing locations of observed points,
-where each row corresponds to a point and each column
-corresponds to a dimension.}
+\item{points}{A matrix or list of matrices containing locations of
+observed points, where each row corresponds to a point and each
+column corresponds to a dimension. If a list, then the patterns
+are assumed to be independent and a single process is fitted to
+all.}
 
-\item{lims}{A matrix with two columns, corresponding to the upper
-and lower limits of each dimension, respectively.}
+\item{lims}{A matrix or list of matrices with two columns,
+corresponding to the upper and lower limits of each dimension,
+respectively. If a list, then each matrix provides the limits
+for the corresponding pattern in \code{points}.}
 
 \item{R}{Truncation distance for the difference process.}
 
@@ -28,6 +32,12 @@ parameters.}
 be a vector of length two, giving the upper and lower bounds
 for the named parameter.}
 
+\item{use.bobyqa}{Logical; if \code{TRUE} the \link{bobyqa} function
+is used for optimisation. Otherwise the \link{nlminb} function
+is used. Note that \link{bobyqa} seems to be less stable than
+\link{nlminb}, but does not require calculation of the Palm
+likelihood's partial derivatives.}
+
 \item{trace}{Logical; if \code{TRUE}, parameter values are printed
 to the screen for each iteration of the optimisation procedure.}
 }
@@ -38,13 +48,12 @@ An R6 reference class object.
 Estimates parameters for a void point process by maximising the
 Palm likelihood. This approach was first proposed by Tanaka et
 al. (2008) for two-dimensional Thomas processes. Generalisation to
-d-dimensional void processes was made by Jones-Todd (in
-submission).
+d-dimensional void processes was made by Jones-Todd et al. (in
+press).
 }
 \details{
-Parameters to estimate are as follows:
-\itemize{
-  \item \code{Dc}, the baseline density of points prior to the deletion process.
+Parameters to estimate are as follows: \itemize{ \item \code{Dc},
+the baseline density of points prior to the deletion process.
 
 \item \code{Dp}, the density of unobserved parents that cause voids.
 
@@ -62,10 +71,11 @@ fit <- fit.void(void.data$points, rbind(c(0, 1), c(0, 1)), R = 0.5)
 
 }
 \references{
-Jones-Todd, C. M., Caie, P., Illian, J., Stevenson,
+Jones-Todd, C. M., Caie, P., Illian, J. B., Stevenson,
     B. C., Savage, A., Harrison, D. J., and Bown, J. L. (in
-    submission). Identifying unusual structures in tissue sections
-    of colon cancer patients using point pattern analysis.
+    press). Identifying prognostic structural features in tissue
+    sections of colon cancer patients using point pattern
+    analysis. \emph{Statistics in Medicine}.
 
 Tanaka, U., Ogata, Y., and Stoyan, D. (2008) Parameter
     estimation and model selection for Neyman-Scott point
