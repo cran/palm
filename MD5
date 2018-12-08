@@ -1,6 +1,6 @@
-bafdf18cf17c2a73cb8d3d0e8664e508 *DESCRIPTION
+530cbd00eaab40d2ffec847d29d23b6f *DESCRIPTION
 f7e50e005bff8f641dc908110b0f6771 *NAMESPACE
-e2332121092161c3f9411d240852d846 *NEWS
+427ade27aeaed2f0afa71f2a30a11e6e *NEWS
 35531766b42024f8f31182adfca636b7 *R/RcppExports.R
 f2efce5ee5ba1caecc34af2aece12f73 *R/fit-ns.r
 9b0dbe874312a0de98f86b9c92655d03 *R/helpers.r
@@ -33,4 +33,4 @@ d917bf93a15707da9e0ca308968540b9 *src/RcppExports.cpp
 9e534813ce6f9f708fb4e92ad04d947b *src/palm_init.c
 aa3158337e354822be8d3263b42618ea *src/pbc_distances.cpp
 335d59b224b1d592a58e47c4dc8da816 *tests/testthat.R
-b84d98a077617a633dc74117b01497ac *tests/testthat/test-fits.r
+8cde3b8455be680fc1c2befa1d923f10 *tests/testthat/test-fits.r
