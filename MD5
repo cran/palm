@@ -1,4 +1,4 @@
-3359995eb6469f46930009e36dd233b1 *DESCRIPTION
+8affe13402173fea3112920148c0b12e *DESCRIPTION
 677c066e3bb6facac12d4af5f94aebf9 *NAMESPACE
 5484feb65017a10d50abb63a5334f38c *NEWS
 6ee6eb559a634e87872e58e43d2a0674 *R/RcppExports.R
@@ -8,7 +8,7 @@ b2d6e1ecc4f97dae4e2876907ee2fc66 *R/methods.r
 52935226f8bf2281f97df3dac289a257 *R/palm.r
 3affbb76016fe272ac65fa6c0681f2af *R/refclass.r
 c23b6ab0c267b3a3045d4ff013780dd0 *README.md
-805108b9abf09381ab1cb881211589d4 *data/examples.r
+32146d71b1158777f830045fa035b3f2 *data/examples.r
 eb7f1afa07bbd23d6fad6a834e7d2ccb *data/porpoise.RData
 1ca1fe05852e631c461abfcbae05cf93 *man/boot.palm.Rd
 00ef89d955e59d87eebf2469958c766d *man/coef.palm.Rd
@@ -26,8 +26,6 @@ b73f925feb194d5423de1826bb3297de *man/sim.ns.Rd
 a179ee2e540556d7b3d4b6e735ecaa11 *man/sim.twocamera.Rd
 9df0e6ee690cdb3dfd8eaf95c0344018 *man/sim.void.Rd
 827e5325d708246a0aeae07ee977d6c3 *man/summary.palm.Rd
-c5d7ce740296e10d653251e35ade4960 *src/Makevars
-01c8b9eff67b8822e7cbfb73af7a8e40 *src/Makevars.win
 cd9913ff62a4b8500c6efa0d6d159543 *src/RcppExports.cpp
 3d48a510acd5567cf74968ae0528b3b5 *src/buffer_keep.cpp
 ebbf8813c1b5bdf13d46e42e53beff69 *src/euc_distances.cpp
